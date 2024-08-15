@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customizable Card Manager with Individual Save & Drag & Drop</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .card-subtitle {
+            cursor: grab;
+        }
+        .card-input {
+            width: 100%;
+            border: none;
+            background: transparent;
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <a class="navbar-brand" href="#">Navbar</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav">
+                <li class="nav-item active">
+                    <a class="nav-link" href="#">Home</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Features</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Pricing</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Button to Add Card -->
+        <button id="addCardBtn" class="btn btn-primary mb-4">Add Card</button>
+
+        <!-- Card Container -->
+        <div id="cardContainer" class="row">
+            <!-- Cards will be appended here -->
+        </div>
+    </div>
+
+    <!-- Bootstrap JS and dependencies -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <script>
+        document.getElementById('addCardBtn').addEventListener('click', function() {
+            // Create card element
+            const card = document.createElement('div');
+            card.className = 'col-md-4 mb-4';
+            card.innerHTML = `
+                <div class="card">
+                    <div class="card-body">
+                        <input type="text" class="card-input card-title" placeholder="Card Heading">
+                        <input type="text" class="card-input card-subtitle" draggable="true" placeholder="Subheading 1">
+                        <input type="text" class="card-input card-subtitle" draggable="true" placeholder="Subheading 2">
+                        <button class="btn btn-success mt-3 saveCardBtn">Save Card</button>
+                        <div class="saved-content mt-3"></div>
+                    </div>
+                </div>
+            `;
+            // Make the card droppable
+            card.querySelector('.card-body').addEventListener('dragover', allowDrop);
+            card.querySelector('.card-body').addEventListener('drop', drop);
+            // Make subheadings draggable
+            const subheadings = card.querySelectorAll('.card-subtitle');
+            subheadings.forEach(subheading => {
+                subheading.addEventListener('dragstart', drag);
+            });
+            // Add event listener for the Save button
+            card.querySelector('.saveCardBtn').addEventListener('click', saveCardContent);
+            // Append card to the container
+            document.getElementById('cardContainer').appendChild(card);
+        });
+
+        function allowDrop(event) {
+            event.preventDefault();
+        }
+
+        function drag(event) {
+            event.dataTransfer.setData('text', event.target.id);
+        }
+
+        function drop(event) {
+            event.preventDefault();
+            const data = event.dataTransfer.getData('text');
+            const draggedElement = document.getElementById(data);
+            event.target.appendChild(draggedElement);
+        }
+
+        // Generate a unique ID for each draggable element
+        function generateId() {
+            return 'id-' + Math.random().toString(36).substr(2, 9);
+        }
+
+        // Assign IDs to each subheading to make them draggable
+        document.addEventListener('click', function () {
+            const subheadings = document.querySelectorAll('.card-subtitle:not([id])');
+            subheadings.forEach(subheading => {
+                subheading.id = generateId();
+            });
+        });
+
+        // Function to save individual card content
+        function saveCardContent(event) {
+            const cardBody = event.target.closest('.card-body');
+            const title = cardBody.querySelector('.card-title').value;
+            const subheadings = cardBody.querySelectorAll('.card-subtitle');
+            let output = `<strong>${title}</strong><ul>`;
+            subheadings.forEach(subheading => {
+                output += `<li>${subheading.value}</li>`;
+            });
+            output += '</ul>';
+            cardBody.querySelector('.saved-content').innerHTML = output;
+        }
+
+    </script>
+
+</body>
+</html>

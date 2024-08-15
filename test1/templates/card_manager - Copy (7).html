@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Card Maker with Subtitle Drag and Drop</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .draggable {
+            cursor: move;
+        }
+
+        .droppable {
+            border: 2px dashed #dee2e6;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <a class="navbar-brand" href="#">Navbar</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'card_manager' %}">Home</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'card_history' %}">Card History</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'card_manager' %}">Card Maker</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Button to Add Card -->
+    <div class="container mt-4">
+        <button class="btn btn-primary mb-4" id="addCardBtn">Add Card</button>
+        <div class="row" id="cardContainer">
+            <!-- Existing cards would be here if any, rendered by Django -->
+            {% for card in cards %}
+                <div class="col-md-4 mb-4">
+                    <div class="card" id="card-{{ card.id }}">
+                        <div class="card-body" ondrop="drop(event)" ondragover="allowDrop(event)">
+                            <input type="text" class="form-control card-title" value="{{ card.title }}">
+                            <input type="text" class="form-control card-subtitle draggable" id="subtitle-{{ card.id }}-1" value="{{ card.subheading_1 }}" draggable="true" ondragstart="drag(event)">
+                            <input type="text" class="form-control card-subtitle draggable" id="subtitle-{{ card.id }}-2" value="{{ card.subheading_2 }}" draggable="true" ondragstart="drag(event)">
+                            <button class="btn btn-success mt-3 saveCardBtn">Save Card</button>
+                            <button class="btn btn-danger mt-2 deleteCardBtn" onclick="deleteCard(event)">Delete</button>
+                            <p class="card-text mt-2"><small class="text-muted">Last updated on {{ card.date_updated }}</small></p>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Bootstrap JS and dependencies -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <!-- Script for Drag and Drop and Saving -->
+    <script>
+        document.getElementById('addCardBtn').addEventListener('click', function() {
+            const cardId = generateId();
+            const card = document.createElement('div');
+            card.className = 'col-md-4 mb-4';
+            card.innerHTML = `
+                <div class="card" id="${cardId}">
+                    <div class="card-body" ondrop="drop(event)" ondragover="allowDrop(event)">
+                        <input type="text" class="card-input card-title" placeholder="Card Heading">
+                        <input type="text" class="card-input card-subtitle" draggable="true" placeholder="Subheading 1" id="${generateId()}">
+                        <input type="text" class="card-input card-subtitle" draggable="true" placeholder="Subheading 2" id="${generateId()}">
+                        <button class="btn btn-success mt-3 saveCardBtn">Save Card</button>
+                        <div class="saved-content mt-3"></div>
+                    </div>
+                </div>
+            `;
+
+            const subheadings = card.querySelectorAll('.card-subtitle');
+            subheadings.forEach(subheading => {
+                subheading.addEventListener('dragstart', drag);
+            });
+
+            card.querySelector('.saveCardBtn').addEventListener('click', saveCardContent);
+            card.querySelector('.deleteCardBtn').addEventListener('click', deleteCard);
+
+            document.getElementById('cardContainer').appendChild(card);
+        });
+
+        function generateId() {
+            return 'card-' + Math.random().toString(36).substr(2, 9);
+        }
+
+        function drag(event) {
+            event.dataTransfer.setData("text", event.target.id);
+        }
+
+        function allowDrop(event) {
+            event.preventDefault();
+        }
+
+        function drop(event) {
+            event.preventDefault();
+            const data = event.dataTransfer.getData("text");
+            const draggedElement = document.getElementById(data);
+            const dropTarget = event.target;
+
+            if (dropTarget.classList.contains('card-input')) {
+                dropTarget.value = draggedElement.value;
+                draggedElement.value = '';  // Clear the original subtitle
+            }
+        }
+
+        function saveCardContent(event) {
+            const cardBody = event.target.closest('.card-body');
+            const cardId = cardBody.closest('.card').id.split('-')[1];
+            const title = cardBody.querySelector('.card-title').value;
+            const subheading_1 = cardBody.querySelectorAll('.card-subtitle')[0].value;
+            const subheading_2 = cardBody.querySelectorAll('.card-subtitle')[1].value;
+
+            const data = {
+                id: cardId,
+                title: title,
+                subheading_1: subheading_1,
+                subheading_2: subheading_2,
+            };
+
+            fetch('/save-card/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Card saved successfully!');
+                } else {
+                    alert('Failed to save the card: ' + (data.error || 'Unknown error.'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while saving the card.');
+            });
+        }
+
+
+        function deleteCard(event) {
+            const cardElement = event.target.closest('.card');
+            const cardId = cardElement.id.split('-')[1];
+
+            fetch(`/delete-card/${cardId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    cardElement.remove();
+                    alert('Card deleted successfully!');
+                } else {
+                    alert('Failed to delete the card.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while deleting the card.');
+            });
+        }
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    </script>
+
+</body>
+</html>
